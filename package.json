@@ -5,13 +5,18 @@
     "server": "node backend/server.js"
   },
   "dependencies": {
+<<<<<<< HEAD
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
+=======
+    "@tonejs/ui": "^0.1.5",
+>>>>>>> 5883c97933740c390d5916b126e7b2ab185102ea
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "elevenlabs": "^1.59.0",
     "express": "^5.2.1",
     "framer-motion": "^12.34.3",
+<<<<<<< HEAD
     "lucide-react": "^0.575.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -20,5 +25,9 @@
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",
     "vite": "^6.0.3"
+=======
+    "howler": "^2.2.4",
+    "lucide-react": "^0.575.0"
+>>>>>>> 5883c97933740c390d5916b126e7b2ab185102ea
   }
 }
