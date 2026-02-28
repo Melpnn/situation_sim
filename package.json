@@ -5,29 +5,29 @@
     "server": "node backend/server.js"
   },
   "dependencies": {
-<<<<<<< HEAD
+    "@elevenlabs/elevenlabs-js": "^2.37.0",
+    "@elevenlabs/react": "^0.14.1",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
-=======
     "@tonejs/ui": "^0.1.5",
->>>>>>> 5883c97933740c390d5916b126e7b2ab185102ea
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "elevenlabs": "^1.59.0",
     "express": "^5.2.1",
     "framer-motion": "^12.34.3",
-<<<<<<< HEAD
+    "howler": "^2.2.4",
     "lucide-react": "^0.575.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "three": "^0.183.2"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.2.1",
+    "@tailwindcss/vite": "^4.2.1",
     "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.27",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.2.1",
     "vite": "^6.0.3"
-=======
-    "howler": "^2.2.4",
-    "lucide-react": "^0.575.0"
->>>>>>> 5883c97933740c390d5916b126e7b2ab185102ea
   }
 }
