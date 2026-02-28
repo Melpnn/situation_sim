@@ -1,17 +1,13 @@
-# Environment variables - NEVER commit API keys!
 .env
 *.env
 .env.local
 .env.*.local
 
-# Dependencies
 node_modules/
 
-# Build output
 dist/
 build/
 
-# Logs
 *.log
 npm-debug.log*
 
