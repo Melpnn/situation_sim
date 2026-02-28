@@ -1,0 +1,40 @@
+{
+  "scenarios": [
+    {
+      "id": "earthquake_start",
+      "type": "earthquake",
+      "situation": "The ground begins to rumble violently. Books are falling off the shelves.",
+      "narrator_intro": "The earth is waking up, and it is angry. You have seconds to act.",
+      "choices": [
+        {
+          "text": "Run for the exit",
+          "isCorrect": false,
+          "response": "Wait! Running during the shaking is dangerous. Falling debris is your biggest threat."
+        },
+        {
+          "text": "Drop, Cover, and Hold On",
+          "isCorrect": true,
+          "response": "Good. You protected your head and neck under the sturdy desk."
+        }
+      ]
+    },
+    {
+      "id": "flood_start",
+      "type": "flood",
+      "situation": "Rain has been falling for 48 hours. Water is starting to seep under your front door.",
+      "narrator_intro": "The river has broken its banks. The water is rising faster than you expected.",
+      "choices": [
+        {
+          "text": "Go to the basement to save valuables",
+          "isCorrect": false,
+          "response": "No! Never go into a basement during a flood. You could become trapped as water fills the room."
+        },
+        {
+          "text": "Move to the highest floor",
+          "isCorrect": true,
+          "response": "Correct. Elevation is your best defense against rising floodwaters."
+        }
+      ]
+    }
+  ]
+}
