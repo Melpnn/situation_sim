@@ -1,145 +1,414 @@
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Heart, Play, Activity, Radio, User } from 'lucide-react'
-import ChoiceCard from './components/ChoiceCard'
-import Narrator from './components/Narrator'
-import './index.css'
+import {
+  DollarSign,
+  Users,
+  Flame,
+  AlertTriangle,
+  ChevronRight,
+  UtensilsCrossed,
+  ShoppingBag,
+  Leaf,
+  MapPin,
+  Loader2,
+  Store,
+} from 'lucide-react'
+
+const COMMON_ALLERGIES = [
+  'Peanuts', 'Tree nuts', 'Dairy', 'Eggs', 'Gluten', 'Shellfish',
+  'Soy', 'Fish', 'Sesame', 'Wheat', 'Corn',
+]
 
 function App() {
-  const [gameState, setGameState] = useState('title')
-  const [health, setHealth] = useState(100)
-  const [textToSpeak, setTextToSpeak] = useState('')
-  const [isShaking, setIsShaking] = useState(false)
-  const [playerAction, setPlayerAction] = useState('idle')
+  const [budget, setBudget] = useState('')
+  const [people, setPeople] = useState('4')
+  const [allergies, setAllergies] = useState([])
+  const [hasStove, setHasStove] = useState(true)
+  const [loading, setLoading] = useState(false)
+  const [result, setResult] = useState(null)
+  const [error, setError] = useState('')
 
-  const startGame = () => {
-    setGameState('playing')
-    setIsShaking(true)
-    setPlayerAction('idle')
-    setTextToSpeak('Warning: Seismic activity detected. Evacuation protocols engaged.')
+  const [address, setAddress] = useState('')
+  const [locationLoading, setLocationLoading] = useState(false)
+  const [locationError, setLocationError] = useState('')
+  const [nearbyStores, setNearbyStores] = useState([])
+  const [coords, setCoords] = useState(null)
+
+  const toggleAllergy = (a) => {
+    setAllergies((prev) => (prev.includes(a) ? prev.filter((x) => x !== a) : [...prev, a]))
   }
 
-  const handleChoice = (damage, response, actionType) => {
-    setHealth((prev) => Math.max(0, prev - damage))
-    setTextToSpeak(response)
-    setPlayerAction(actionType)
-    if (damage === 0) {
-      setIsShaking(false)
-    } else {
-      setIsShaking(true)
-      setTimeout(() => setIsShaking(false), 800)
+  const fetchNearbyStores = async (lat, lng) => {
+    setLocationLoading(true)
+    setLocationError('')
+    try {
+      const res = await fetch(`/api/nearby-stores?lat=${lat}&lng=${lng}`)
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch stores')
+      setNearbyStores(data)
+      setCoords({ lat, lng })
+    } catch (err) {
+      setLocationError(err.message)
+      setNearbyStores([])
+    } finally {
+      setLocationLoading(false)
     }
   }
 
-  const playerVariants = {
-    idle: { x: 0, y: 0, backgroundColor: '#3b82f6', scale: 1 },
-    desk: { x: -100, y: 40, backgroundColor: '#22c55e', scale: 0.85 },
-    stairs: {
-      x: 120,
-      y: -40,
-      backgroundColor: '#ef4444',
-      scale: 1.1,
-      rotate: [0, -20, 20, -20, 0],
-      transition: { rotate: { repeat: 3, duration: 0.15 } },
-    },
+  const useMyLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationError('Geolocation not supported')
+      return
+    }
+    setLocationLoading(true)
+    setLocationError('')
+    navigator.geolocation.getCurrentPosition(
+      (pos) => fetchNearbyStores(pos.coords.latitude, pos.coords.longitude),
+      () => {
+        setLocationError('Location access denied')
+        setLocationLoading(false)
+      }
+    )
+  }
+
+  const searchByAddress = async () => {
+    if (!address.trim()) {
+      setLocationError('Enter an address')
+      return
+    }
+    setLocationLoading(true)
+    setLocationError('')
+    try {
+      const res = await fetch(`/api/geocode?address=${encodeURIComponent(address)}`)
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Address not found')
+      await fetchNearbyStores(data.lat, data.lng)
+    } catch (err) {
+      setLocationError(err.message)
+      setLocationLoading(false)
+    }
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setError('')
+    setResult(null)
+
+    const budgetNum = parseFloat(budget?.replace(/[^0-9.]/g, ''))
+    if (!budgetNum || budgetNum <= 0) {
+      setError('Please enter a valid budget amount.')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const res = await fetch('/api/plan-meal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          budget: budgetNum,
+          people: parseInt(people) || 4,
+          allergies,
+          hasStove,
+          lat: coords?.lat,
+          lng: coords?.lng,
+          nearbyStores: nearbyStores.length ? nearbyStores.map((s) => s.name) : undefined,
+        }),
+      })
+
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setError(data.error || 'Something went wrong.')
+        return
+      }
+      setResult(data)
+    } catch (err) {
+      setError('Could not reach server. Make sure the backend is running: npm run server')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const reset = () => {
+    setResult(null)
+    setError('')
   }
 
   return (
-    <div
-      className={`h-screen w-screen bg-slate-950 text-white overflow-hidden flex items-center justify-center font-sans ${isShaking ? 'animate-shake' : ''}`}
-    >
-      <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.1)_50%)] bg-[length:100%_4px] z-50"></div>
-
-      <AnimatePresence mode="wait">
-        {gameState === 'title' ? (
-          <motion.div
-            key="title"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="text-center z-10"
-          >
-            <div className="flex items-center justify-center gap-2 text-red-500 font-black mb-4 tracking-[0.3em] uppercase animate-pulse">
-              <Activity size={20} /> Neural Link Active
-            </div>
-            <h1 className="text-8xl md:text-9xl font-black uppercase italic tracking-tighter mb-10 bg-gradient-to-b from-white via-gray-300 to-gray-700 bg-clip-text text-transparent">
-              DISASTER
-              <br />
-              SIMULATOR
-            </h1>
-            <button
-              onClick={startGame}
-              className="bg-red-600 hover:bg-red-500 px-16 py-6 rounded-sm font-black text-3xl uppercase italic flex items-center gap-4 mx-auto transition-all"
-            >
-              Start Simulation <Play fill="white" size={32} />
-            </button>
-          </motion.div>
-        ) : (
-          <div className="w-full h-full flex flex-col items-center p-8 relative">
-            <div className="absolute top-8 left-8 flex items-center gap-6 bg-black/80 p-5 border-l-4 border-red-600 shadow-2xl z-20">
-              <Heart
-                className={`w-10 h-10 ${health < 40 ? 'text-red-600 animate-pulse' : 'text-red-500'}`}
-                fill="currentColor"
-              />
-              <div>
-                <p className="text-[10px] uppercase font-black text-gray-500 tracking-widest">
-                  Vital Signs
-                </p>
-                <p className="text-4xl font-black tabular-nums">{health}%</p>
-              </div>
-            </div>
-
-            <div className="flex flex-col items-center justify-center flex-grow w-full max-w-4xl mt-10">
-              <div className="relative w-full max-w-xl h-64 bg-slate-900 border-2 border-slate-700 rounded-xl mb-8 overflow-hidden flex items-center justify-center shadow-[inset_0_0_50px_rgba(0,0,0,0.8)]">
-                <div className="absolute top-3 left-4 flex items-center gap-2 text-xs font-bold tracking-widest text-red-500 uppercase animate-pulse">
-                  <Radio size={14} /> Live Area Feed
-                </div>
-                <div className="absolute bottom-8 left-12 w-32 h-16 border-2 border-green-500/30 bg-green-500/10 border-dashed rounded flex items-center justify-center text-green-500/50 font-black text-sm tracking-widest">
-                  DESK
-                </div>
-                <div className="absolute top-8 right-12 w-28 h-32 border-2 border-red-500/30 bg-red-500/10 border-dashed rounded flex items-center justify-center text-red-500/50 font-black text-sm tracking-widest">
-                  STAIRWELL
-                </div>
-                <motion.div
-                  variants={playerVariants}
-                  animate={playerAction}
-                  initial="idle"
-                  className="absolute w-12 h-12 rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(0,0,0,0.5)] z-10"
-                >
-                  <User className="text-white" size={24} />
-                </motion.div>
-              </div>
-
-              <h2 className="text-5xl font-black uppercase tracking-tighter mb-4 text-center">
-                Seismic Event Detected
-              </h2>
-              <p className="text-xl text-gray-400 text-center max-w-2xl font-medium italic mb-8 h-12">
-                &quot;{textToSpeak || 'The earth is trembling. Choose your path to survival.'}&quot;
-              </p>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-3xl">
-                <ChoiceCard
-                  text="Secure Position Under Desk"
-                  onSelect={() =>
-                    handleChoice(0, 'Survival secured. Structure remains intact.', 'desk')
-                  }
-                />
-                <ChoiceCard
-                  text="Evacuate Via Stairwell"
-                  onSelect={() =>
-                    handleChoice(
-                      50,
-                      'Catastrophic failure. Debris has caused major trauma.',
-                      'stairs'
-                    )
-                  }
-                />
-              </div>
-            </div>
+    <div className="min-h-screen bg-gradient-to-b from-amber-50 via-white to-orange-50">
+      <header className="border-b border-amber-200/60 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
+        <div className="max-w-3xl mx-auto px-4 py-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
+            <UtensilsCrossed className="text-white" size={22} />
           </div>
-        )}
-      </AnimatePresence>
-      <Narrator textToSpeak={textToSpeak} />
+          <div>
+            <h1 className="font-bold text-lg text-slate-800">MealStretch</h1>
+            <p className="text-xs text-slate-500">Budget meal planning for families</p>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-3xl mx-auto px-4 py-10">
+        <AnimatePresence mode="wait">
+          {!result ? (
+            <motion.form
+              key="form"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              onSubmit={handleSubmit}
+              className="space-y-8"
+            >
+              <div>
+                <h2 className="text-2xl font-bold text-slate-800 mb-1">
+                  Plan a meal within your budget
+                </h2>
+                <p className="text-slate-600 text-sm">
+                  Enter your total budget for the whole meal. We'll suggest a healthy option that feeds everyone.
+                </p>
+              </div>
+
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Find nearby grocery stores (optional)
+                  </label>
+                  <div className="flex gap-2 mb-2">
+                    <button
+                      type="button"
+                      onClick={useMyLocation}
+                      disabled={locationLoading}
+                      className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                    >
+                      {locationLoading ? <Loader2 size={18} className="animate-spin" /> : <MapPin size={18} />}
+                      Use my location
+                    </button>
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Or enter address (e.g. 123 Main St, City)"
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), searchByAddress())}
+                      className="flex-1 px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                    />
+                    <button
+                      type="button"
+                      onClick={searchByAddress}
+                      disabled={locationLoading}
+                      className="px-4 py-3 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-60"
+                    >
+                      Search
+                    </button>
+                  </div>
+                  {locationError && (
+                    <p className="mt-1 text-sm text-rose-600">{locationError}</p>
+                  )}
+                  {nearbyStores.length > 0 && (
+                    <div className="mt-3 p-3 rounded-xl bg-amber-50/80 border border-amber-200">
+                      <p className="text-sm font-medium text-amber-800 mb-2 flex items-center gap-2">
+                        <Store size={16} /> Nearby stores
+                      </p>
+                      <ul className="text-sm text-slate-700 space-y-1">
+                        {nearbyStores.slice(0, 5).map((s) => (
+                          <li key={s.id}>
+                            {s.name} {s.distance && `· ${s.distance}`}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Total budget for this meal (any amount)
+                  </label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="e.g. 15.00"
+                      value={budget}
+                      onChange={(e) => setBudget(e.target.value)}
+                      className="w-full pl-12 pr-4 py-3.5 rounded-xl border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    How many people to feed?
+                  </label>
+                  <div className="relative">
+                    <Users className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                    <select
+                      value={people}
+                      onChange={(e) => setPeople(e.target.value)}
+                      className="w-full pl-12 pr-4 py-3.5 rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 appearance-none"
+                    >
+                      {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+                        <option key={n} value={n}>{n} {n === 1 ? 'person' : 'people'}</option>
+                      ))}
+                    </select>
+                    <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 rotate-90 pointer-events-none" size={18} />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Do you have access to a cooking stove?
+                  </label>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setHasStove(true)}
+                      className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl border transition-all ${
+                        hasStove
+                          ? 'bg-amber-50 border-amber-400 text-amber-800'
+                          : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-slate-300'
+                      }`}
+                    >
+                      <Flame size={18} /> Yes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setHasStove(false)}
+                      className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl border transition-all ${
+                        !hasStove
+                          ? 'bg-amber-50 border-amber-400 text-amber-800'
+                          : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-slate-300'
+                      }`}
+                    >
+                      No stove
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Allergies (tap to select)
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {COMMON_ALLERGIES.map((a) => (
+                      <button
+                        key={a}
+                        type="button"
+                        onClick={() => toggleAllergy(a)}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                          allergies.includes(a)
+                            ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                            : 'bg-slate-100 text-slate-600 border border-transparent hover:bg-slate-200'
+                        }`}
+                      >
+                        {a}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {error && (
+                <div className="flex items-center gap-2 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm">
+                  <AlertTriangle size={18} className="shrink-0" />
+                  {error}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-4 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-semibold text-lg shadow-lg shadow-amber-500/25 hover:shadow-amber-500/30 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {loading ? 'Finding the best meal...' : 'Find my meal'}
+              </button>
+            </motion.form>
+          ) : (
+            <motion.div
+              key="result"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-6"
+            >
+              {result.nearbyStores?.length > 0 && (
+                <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-50 border border-amber-200">
+                  <Store className="text-amber-600 shrink-0 mt-0.5" size={20} />
+                  <div>
+                    <p className="font-medium text-amber-800 text-sm">Shop at these nearby stores</p>
+                    <p className="text-amber-700 text-sm mt-0.5">{result.nearbyStores.join(' · ')}</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-800">{result.meal.mealName}</h2>
+                  <p className="text-slate-600 mt-1">
+                    Feeds {result.people} · ${result.meal.totalCost?.toFixed(2) || '—'} total
+                    (under ${result.budget.toFixed(2)} budget)
+                  </p>
+                </div>
+                <button
+                  onClick={reset}
+                  className="text-sm font-medium text-amber-600 hover:text-amber-700"
+                >
+                  Plan another
+                </button>
+              </div>
+
+              {result.meal.nutritionNotes && (
+                <div className="flex items-start gap-3 p-4 rounded-xl bg-green-50 border border-green-200">
+                  <Leaf className="text-green-600 shrink-0 mt-0.5" size={20} />
+                  <p className="text-green-800 text-sm">{result.meal.nutritionNotes}</p>
+                </div>
+              )}
+
+              <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+                <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center gap-2">
+                  <ShoppingBag size={18} className="text-slate-600" />
+                  <span className="font-semibold text-slate-800">Ingredients to buy</span>
+                </div>
+                <ul className="divide-y divide-slate-100">
+                  {(result.meal.ingredients || []).map((ing, i) => (
+                    <li key={i} className="px-4 py-3 flex justify-between items-center">
+                      <span className="text-slate-700">
+                        {ing.quantity ? `${ing.quantity} ` : ''}{ing.name}
+                      </span>
+                      <span className="font-medium text-amber-700">
+                        ${typeof ing.price === 'number' ? ing.price.toFixed(2) : '—'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+                <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center gap-2">
+                  <UtensilsCrossed size={18} className="text-slate-600" />
+                  <span className="font-semibold text-slate-800">How to make it</span>
+                </div>
+                <ol className="divide-y divide-slate-100">
+                  {(result.meal.instructions || []).map((step, i) => (
+                    <li key={i} className="px-4 py-3 flex gap-3">
+                      <span className="shrink-0 w-6 h-6 rounded-full bg-amber-100 text-amber-800 text-sm font-semibold flex items-center justify-center">
+                        {i + 1}
+                      </span>
+                      <span className="text-slate-700">{step}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </main>
+
+      <footer className="mt-16 py-8 text-center text-slate-500 text-sm">
+        <p>MealStretch helps families eat well on a budget.</p>
+      </footer>
     </div>
   )
 }
