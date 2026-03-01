@@ -142,6 +142,8 @@ function App() {
   const stores = result?.nearbyStores || []
   const recommended = result?.recommendedStore
 
+  const formatRegion = (r) => r?.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) || ''
+
   const NutritionBadge = ({ label, value, color }) => (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium ${color}`}>
       {label} {value}
@@ -422,13 +424,28 @@ function App() {
                     transition={{ delay: i * 0.05 }}
                     type="button"
                     onClick={() => setSelectedMeal(m)}
-                    className={`text-left p-5 rounded-2xl border-2 transition-all duration-200 active:scale-[0.99] ${
+                    className={`text-left p-5 rounded-2xl border-2 transition-all duration-200 active:scale-[0.99] flex gap-4 items-start ${
                       meal?.mealName === m.mealName
                         ? 'bg-amber-50/80 border-amber-400 shadow-md ring-2 ring-amber-200/50'
                         : 'bg-white border-slate-200 hover:border-amber-300/60 hover:shadow-sm'
                     }`}
                   >
-                    <span className="font-semibold text-slate-800 block">{m.mealName}</span>
+                    {m.image && (
+                      <img
+                        src={m.image}
+                        alt={m.mealName}
+                        className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover shrink-0"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-slate-800">{m.mealName}</span>
+                      {m.region && (
+                        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-teal-100 text-teal-800 border border-teal-200">
+                          {formatRegion(m.region)}
+                        </span>
+                      )}
+                    </div>
                     {m.nutrition && (
                       <div className="flex flex-wrap gap-1.5 mt-2">
                         <NutritionBadge label="Cal" value={m.nutrition.calories} color="bg-orange-100 text-orange-800" />
@@ -440,6 +457,7 @@ function App() {
                     <span className="block text-sm text-slate-600 mt-1 font-medium">
                       Feeds {m.servings} · ${m.totalCost?.toFixed(2) || '—'} total
                     </span>
+                    </div>
                   </motion.button>
                 ))}
               </div>
@@ -452,17 +470,53 @@ function App() {
                   className="space-y-5"
                 >
                   <div className="pt-6 border-t-2 border-slate-200">
-                    <h2 className="text-2xl font-bold text-slate-800">{meal.mealName}</h2>
-                    <p className="text-slate-600 mt-1.5 font-medium">
-                      Feeds {result.people} · ${meal.totalCost?.toFixed(2) || '—'} total
-                      <span className="text-teal-600"> (under ${result.budget?.toFixed(2)} budget)</span>
-                    </p>
-                    {meal.nutrition && (
-                      <div className="flex flex-wrap gap-2 mt-3 p-3 rounded-xl bg-gradient-to-r from-amber-50 to-rose-50 border border-amber-200/40">
-                        <NutritionBadge label="Calories" value={meal.nutrition.calories} color="bg-orange-100 text-orange-800" />
-                        <NutritionBadge label="Protein" value={meal.nutrition.protein + 'g'} color="bg-blue-100 text-blue-800" />
-                        <NutritionBadge label="Fat" value={meal.nutrition.fat + 'g'} color="bg-amber-100 text-amber-800" />
-                        <NutritionBadge label="Carbs" value={meal.nutrition.carbs + 'g'} color="bg-emerald-100 text-emerald-800" />
+                    <div className="flex gap-4 items-start">
+                      {meal.image && (
+                        <img
+                          src={meal.image}
+                          alt={meal.mealName}
+                          className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl object-cover shrink-0"
+                        />
+                      )}
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h2 className="text-2xl font-bold text-slate-800">{meal.mealName}</h2>
+                          {meal.region && (
+                            <span className="text-sm font-medium px-2.5 py-1 rounded-full bg-teal-100 text-teal-800 border border-teal-200">
+                              {formatRegion(meal.region)}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-slate-600 mt-1.5 font-medium">
+                          Feeds {result.people} · ${meal.totalCost?.toFixed(2) || '—'} total
+                          <span className="text-teal-600"> (under ${result.budget?.toFixed(2)} budget)</span>
+                        </p>
+                      </div>
+                    </div>
+                    {meal.nutrition && (meal.nutrition.calories > 0 || meal.nutrition.protein > 0 || meal.nutrition.fat > 0 || meal.nutrition.carbs > 0) && (
+                      <div className="mt-4 rounded-2xl border-2 border-slate-800/20 bg-white overflow-hidden shadow-sm max-w-xs">
+                        <div className="px-4 py-2 bg-slate-800 text-white">
+                          <h3 className="font-bold text-sm tracking-tight">Nutrition Facts</h3>
+                          <p className="text-white/90 text-xs mt-0.5">Total for {meal.servings} serving{meal.servings !== 1 ? 's' : ''}</p>
+                        </div>
+                        <div className="px-4 py-3 space-y-2 text-sm">
+                          <div className="flex justify-between items-baseline border-b-2 border-slate-800 pb-1">
+                            <span className="font-bold text-slate-800">Calories</span>
+                            <span className="font-bold text-slate-800">{meal.nutrition.calories || 0}</span>
+                          </div>
+                          <div className="flex justify-between text-slate-600">
+                            <span>Total Fat</span>
+                            <span>{meal.nutrition.fat || 0}g</span>
+                          </div>
+                          <div className="flex justify-between text-slate-600">
+                            <span>Total Carbohydrate</span>
+                            <span>{meal.nutrition.carbs || 0}g</span>
+                          </div>
+                          <div className="flex justify-between text-slate-600">
+                            <span>Protein</span>
+                            <span>{meal.nutrition.protein || 0}g</span>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
