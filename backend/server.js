@@ -328,7 +328,8 @@ app.get('/api/inventory', (req, res) => {
 })
 
 app.post('/api/plan-meal', (req, res) => {
-  const { budget, people, allergies, hasStove, nearbyStores } = req.body || {}
+  const { budget, people, allergies, hasStove, nearbyStores: storesFromClient } = req.body || {}
+  const nearbyStores = Array.isArray(storesFromClient) ? storesFromClient : []
 
   if (!budget || budget <= 0) {
     return res.status(400).json({ error: 'Please enter a valid budget amount.' })
@@ -362,48 +363,45 @@ app.post('/api/plan-meal', (req, res) => {
     })
   }
 
-  let best = candidates[0]
-  let bestScore = -1
-
-  for (const m of candidates) {
-    const baseCost = m.ingredients.reduce((sum, i) => sum + (i.price || 0), 0)
+  const buildMeal = (m) => {
     const scale = Math.max(1, Math.ceil(numPeople / m.servings))
-    const totalCost = Math.round(baseCost * scale * 100) / 100
-    if (totalCost > budgetNum) continue
-
-    const servingsAfterScale = m.servings * scale
-    const costPerPerson = totalCost / servingsAfterScale
-    const score = servingsAfterScale - costPerPerson * 0.01
-
-    if (score > bestScore) {
-      bestScore = score
-      best = { ...m, _scale: scale, _totalCost: totalCost }
+    const totalCost = Math.round(
+      m.ingredients.reduce((s, i) => s + (i.price || 0), 0) * scale * 100
+    ) / 100
+    if (totalCost > budgetNum) return null
+    return {
+      mealName: m.mealName,
+      servings: m.servings * scale,
+      totalCost,
+      ingredients: m.ingredients.map((i) => ({
+        name: INV[i.key]?.name || i.key,
+        price: Math.round((i.price || 0) * scale * 100) / 100,
+        quantity: i.quantity,
+      })),
+      instructions: m.instructions,
+      nutritionNotes: m.nutritionNotes,
     }
   }
 
-  const scale = best._scale || Math.max(1, Math.ceil(numPeople / best.servings))
-  const totalCost = best._totalCost ?? Math.round(
-    best.ingredients.reduce((s, i) => s + (i.price || 0), 0) * scale * 100
-  ) / 100
+  const meals = candidates
+    .map((m) => buildMeal(m))
+    .filter(Boolean)
+    .sort((a, b) => a.totalCost - b.totalCost)
+    .slice(0, 8)
 
-  const meal = {
-    mealName: best.mealName,
-    servings: best.servings * scale,
-    totalCost,
-    ingredients: best.ingredients.map((i) => ({
-      name: INV[i.key]?.name || i.key,
-      price: Math.round((i.price || 0) * scale * 100) / 100,
-      quantity: i.quantity,
-    })),
-    instructions: best.instructions,
-    nutritionNotes: best.nutritionNotes,
-  }
+  const recommendedStore = Array.isArray(nearbyStores) && nearbyStores.length
+    ? nearbyStores[0]
+    : null
 
   res.json({
-    meal,
+    meals,
     budget: budgetNum,
     people: numPeople,
     nearbyStores: Array.isArray(nearbyStores) ? nearbyStores : undefined,
+    recommendedStore: recommendedStore ? {
+      name: recommendedStore.name,
+      address: recommendedStore.address || recommendedStore.vicinity,
+    } : null,
   })
 })
 
@@ -425,7 +423,7 @@ app.get('/api/nearby-stores', async (req, res) => {
   }
 
   try {
-    const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=5000&type=grocery_or_supermarket&key=${GOOGLE_PLACES_API_KEY}`
+    const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&rankby=distance&type=grocery_or_supermarket&key=${GOOGLE_PLACES_API_KEY}`
     const response = await fetch(url)
     const data = await response.json()
 
@@ -444,7 +442,8 @@ app.get('/api/nearby-stores', async (req, res) => {
       return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
     }
 
-    const stores = (data.results || []).slice(0, 10).map((p, i) => {
+    const results = (data.results || []).slice(0, 10)
+    const stores = results.map((p, i) => {
       const loc = p.geometry?.location
       const dist = loc ? haversine(userLat, userLng, loc.lat, loc.lng) : null
       return {
@@ -454,6 +453,23 @@ app.get('/api/nearby-stores', async (req, res) => {
         distance: dist != null ? `${dist.toFixed(1)} mi` : null,
       }
     })
+
+    // Fetch full addresses via Place Details for top 5 stores
+    const topIds = results.slice(0, 5).map((p) => p.place_id).filter(Boolean)
+    if (topIds.length && GOOGLE_PLACES_API_KEY) {
+      const details = await Promise.all(
+        topIds.map((placeId) =>
+          fetch(`https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=formatted_address&key=${GOOGLE_PLACES_API_KEY}`)
+            .then((r) => r.json())
+            .then((d) => (d.result?.formatted_address ? { placeId, address: d.result.formatted_address } : null))
+            .catch(() => null)
+        )
+      )
+      const addrMap = Object.fromEntries((details.filter(Boolean) || []).map((d) => [d.placeId, d.address]))
+      stores.forEach((s, i) => {
+        if (addrMap[results[i]?.place_id]) stores[i].address = addrMap[results[i].place_id]
+      })
+    }
 
     res.json(stores)
   } catch (err) {

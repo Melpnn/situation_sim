@@ -8,7 +8,15 @@ html, body, #root {
 }
 
 body {
-  font-family: 'DM Sans', system-ui, sans-serif;
+  font-family: 'Quicksand', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Cozy cafe warm background */
+.cafe-warm-bg {
+  background-color: #faf7f2;
+  background-image: 
+    radial-gradient(ellipse at 20% 20%, rgba(196, 167, 125, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 80%, rgba(139, 115, 85, 0.06) 0%, transparent 50%);
 }

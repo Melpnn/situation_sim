@@ -26,6 +26,7 @@ function App() {
   const [hasStove, setHasStove] = useState(true)
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
+  const [selectedMeal, setSelectedMeal] = useState(null)
   const [error, setError] = useState('')
 
   const [address, setAddress] = useState('')
@@ -45,7 +46,7 @@ function App() {
       const res = await fetch(`/api/nearby-stores?lat=${lat}&lng=${lng}`)
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to fetch stores')
-      setNearbyStores(data)
+      setNearbyStores(Array.isArray(data) ? data : [])
       setCoords({ lat, lng })
     } catch (err) {
       setLocationError(err.message)
@@ -93,6 +94,7 @@ function App() {
     e.preventDefault()
     setError('')
     setResult(null)
+    setSelectedMeal(null)
 
     const budgetNum = parseFloat(budget?.replace(/[^0-9.]/g, ''))
     if (!budgetNum || budgetNum <= 0) {
@@ -112,7 +114,7 @@ function App() {
           hasStove,
           lat: coords?.lat,
           lng: coords?.lng,
-          nearbyStores: nearbyStores.length ? nearbyStores.map((s) => s.name) : undefined,
+          nearbyStores: nearbyStores.length ? nearbyStores : undefined,
         }),
       })
 
@@ -122,6 +124,7 @@ function App() {
         return
       }
       setResult(data)
+      if (data.meals?.length) setSelectedMeal(data.meals[0])
     } catch (err) {
       setError('Could not reach server. Make sure the backend is running: npm run server')
     } finally {
@@ -131,19 +134,24 @@ function App() {
 
   const reset = () => {
     setResult(null)
+    setSelectedMeal(null)
     setError('')
   }
 
+  const meal = selectedMeal || result?.meals?.[0]
+  const stores = result?.nearbyStores || []
+  const recommended = result?.recommendedStore
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-amber-50 via-white to-orange-50">
-      <header className="border-b border-amber-200/60 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
+    <div className="min-h-screen cafe-warm-bg text-cafe-espresso">
+      <header className="border-b border-cafe-foam bg-cafe-latte/95 backdrop-blur-sm sticky top-0 z-10 shadow-cafe">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-cafe-caramel to-cafe-rose flex items-center justify-center shadow-cafe">
             <UtensilsCrossed className="text-white" size={22} />
           </div>
           <div>
-            <h1 className="font-bold text-lg text-slate-800">MealStretch</h1>
-            <p className="text-xs text-slate-500">Budget meal planning for families</p>
+            <h1 className="font-serif text-xl font-semibold text-cafe-espresso">MealStretch</h1>
+            <p className="text-xs text-cafe-walnut/80">Budget meal planning for families</p>
           </div>
         </div>
       </header>
@@ -160,17 +168,17 @@ function App() {
               className="space-y-8"
             >
               <div>
-                <h2 className="text-2xl font-bold text-slate-800 mb-1">
+                <h2 className="font-serif text-2xl font-semibold text-cafe-espresso mb-1">
                   Plan a meal within your budget
                 </h2>
-                <p className="text-slate-600 text-sm">
-                  Enter your total budget for the whole meal. We'll suggest a healthy option that feeds everyone.
+                <p className="text-cafe-walnut/90 text-sm">
+                  Enter your total budget. We'll suggest several healthy options—pick the one you like.
                 </p>
               </div>
 
               <div className="space-y-6">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                  <label className="block text-sm font-medium text-cafe-espresso mb-2">
                     Find nearby grocery stores (optional)
                   </label>
                   <div className="flex gap-2 mb-2">
@@ -178,7 +186,7 @@ function App() {
                       type="button"
                       onClick={useMyLocation}
                       disabled={locationLoading}
-                      className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                      className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl border border-cafe-foam bg-white text-cafe-espresso hover:border-cafe-caramel hover:shadow-cafe transition-all disabled:opacity-60"
                     >
                       {locationLoading ? <Loader2 size={18} className="animate-spin" /> : <MapPin size={18} />}
                       Use my location
@@ -191,13 +199,13 @@ function App() {
                       value={address}
                       onChange={(e) => setAddress(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), searchByAddress())}
-                      className="flex-1 px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                      className="flex-1 px-4 py-3 rounded-2xl border border-cafe-foam bg-white text-cafe-espresso placeholder:text-cafe-walnut/60 focus:outline-none focus:ring-2 focus:ring-cafe-caramel/40 focus:border-cafe-caramel"
                     />
                     <button
                       type="button"
                       onClick={searchByAddress}
                       disabled={locationLoading}
-                      className="px-4 py-3 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-60"
+                      className="px-4 py-3 rounded-2xl bg-cafe-foam text-cafe-espresso hover:bg-cafe-caramel/20 disabled:opacity-60 font-medium"
                     >
                       Search
                     </button>
@@ -206,14 +214,16 @@ function App() {
                     <p className="mt-1 text-sm text-rose-600">{locationError}</p>
                   )}
                   {nearbyStores.length > 0 && (
-                    <div className="mt-3 p-3 rounded-xl bg-amber-50/80 border border-amber-200">
-                      <p className="text-sm font-medium text-amber-800 mb-2 flex items-center gap-2">
-                        <Store size={16} /> Nearby stores
+                    <div className="mt-3 p-4 rounded-2xl bg-cafe-latte border border-cafe-foam shadow-cafe">
+                      <p className="text-sm font-medium text-cafe-espresso mb-2 flex items-center gap-2">
+                        <Store size={16} className="text-cafe-caramel" /> Nearby stores
                       </p>
-                      <ul className="text-sm text-slate-700 space-y-1">
+                      <ul className="text-sm text-cafe-walnut space-y-2">
                         {nearbyStores.slice(0, 5).map((s) => (
-                          <li key={s.id}>
-                            {s.name} {s.distance && `· ${s.distance}`}
+                          <li key={s.id} className="flex flex-col gap-0.5">
+                            <span className="font-medium text-cafe-espresso">{s.name}</span>
+                            {s.address && <span className="text-cafe-walnut/80 text-xs">{s.address}</span>}
+                            {s.distance && <span className="text-cafe-sage text-xs">{s.distance}</span>}
                           </li>
                         ))}
                       </ul>
@@ -222,53 +232,53 @@ function App() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                  <label className="block text-sm font-medium text-cafe-espresso mb-2">
                     Total budget for this meal (any amount)
                   </label>
                   <div className="relative">
-                    <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                    <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-cafe-caramel" size={20} />
                     <input
                       type="text"
                       inputMode="decimal"
                       placeholder="e.g. 15.00"
                       value={budget}
                       onChange={(e) => setBudget(e.target.value)}
-                      className="w-full pl-12 pr-4 py-3.5 rounded-xl border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500"
+                      className="w-full pl-12 pr-4 py-3.5 rounded-2xl border border-cafe-foam bg-white text-cafe-espresso placeholder:text-cafe-walnut/60 focus:outline-none focus:ring-2 focus:ring-cafe-caramel/40 focus:border-cafe-caramel"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                  <label className="block text-sm font-medium text-cafe-espresso mb-2">
                     How many people to feed?
                   </label>
                   <div className="relative">
-                    <Users className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                    <Users className="absolute left-4 top-1/2 -translate-y-1/2 text-cafe-caramel" size={20} />
                     <select
                       value={people}
                       onChange={(e) => setPeople(e.target.value)}
-                      className="w-full pl-12 pr-4 py-3.5 rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 appearance-none"
+                      className="w-full pl-12 pr-4 py-3.5 rounded-2xl border border-cafe-foam bg-white text-cafe-espresso focus:outline-none focus:ring-2 focus:ring-cafe-caramel/40 focus:border-cafe-caramel appearance-none"
                     >
                       {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
                         <option key={n} value={n}>{n} {n === 1 ? 'person' : 'people'}</option>
                       ))}
                     </select>
-                    <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 rotate-90 pointer-events-none" size={18} />
+                    <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 text-cafe-walnut/60 rotate-90 pointer-events-none" size={18} />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                  <label className="block text-sm font-medium text-cafe-espresso mb-2">
                     Do you have access to a cooking stove?
                   </label>
                   <div className="flex gap-3">
                     <button
                       type="button"
                       onClick={() => setHasStove(true)}
-                      className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl border transition-all ${
+                      className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl border transition-all font-medium ${
                         hasStove
-                          ? 'bg-amber-50 border-amber-400 text-amber-800'
-                          : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-slate-300'
+                          ? 'bg-cafe-caramel/20 border-cafe-caramel text-cafe-espresso shadow-cafe'
+                          : 'bg-white border-cafe-foam text-cafe-walnut hover:border-cafe-caramel/50'
                       }`}
                     >
                       <Flame size={18} /> Yes
@@ -276,10 +286,10 @@ function App() {
                     <button
                       type="button"
                       onClick={() => setHasStove(false)}
-                      className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl border transition-all ${
+                      className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl border transition-all font-medium ${
                         !hasStove
-                          ? 'bg-amber-50 border-amber-400 text-amber-800'
-                          : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-slate-300'
+                          ? 'bg-cafe-caramel/20 border-cafe-caramel text-cafe-espresso shadow-cafe'
+                          : 'bg-white border-cafe-foam text-cafe-walnut hover:border-cafe-caramel/50'
                       }`}
                     >
                       No stove
@@ -288,7 +298,7 @@ function App() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                  <label className="block text-sm font-medium text-cafe-espresso mb-2">
                     Allergies (tap to select)
                   </label>
                   <div className="flex flex-wrap gap-2">
@@ -297,10 +307,10 @@ function App() {
                         key={a}
                         type="button"
                         onClick={() => toggleAllergy(a)}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                        className={`px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
                           allergies.includes(a)
                             ? 'bg-rose-100 text-rose-800 border border-rose-200'
-                            : 'bg-slate-100 text-slate-600 border border-transparent hover:bg-slate-200'
+                            : 'bg-white text-cafe-walnut border border-cafe-foam hover:border-cafe-caramel/50'
                         }`}
                       >
                         {a}
@@ -311,7 +321,7 @@ function App() {
               </div>
 
               {error && (
-                <div className="flex items-center gap-2 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm">
+                <div className="flex items-center gap-2 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-sm">
                   <AlertTriangle size={18} className="shrink-0" />
                   {error}
                 </div>
@@ -320,9 +330,9 @@ function App() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-4 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-semibold text-lg shadow-lg shadow-amber-500/25 hover:shadow-amber-500/30 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full py-4 rounded-2xl bg-gradient-to-r from-cafe-walnut to-cafe-espresso text-white font-semibold shadow-cafe-lg hover:shadow-cafe transition-all disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {loading ? 'Finding the best meal...' : 'Find my meal'}
+                {loading ? 'Finding meals...' : 'Find my meals'}
               </button>
             </motion.form>
           ) : (
@@ -333,80 +343,137 @@ function App() {
               exit={{ opacity: 0, y: -10 }}
               className="space-y-6"
             >
-              {result.nearbyStores?.length > 0 && (
-                <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-50 border border-amber-200">
-                  <Store className="text-amber-600 shrink-0 mt-0.5" size={20} />
+              {stores.length > 0 && (
+                <div className="p-4 rounded-2xl bg-cafe-latte border border-cafe-foam shadow-cafe">
+                  <p className="font-medium text-cafe-espresso text-sm mb-2 flex items-center gap-2">
+                    <Store size={18} className="text-cafe-caramel" /> Nearby stores (with addresses)
+                  </p>
+                  <ul className="text-sm text-cafe-walnut space-y-2">
+                    {stores.slice(0, 5).map((s) => (
+                      <li key={s.id} className="flex flex-col gap-0.5">
+                        <span className="font-medium text-cafe-espresso">{s.name}</span>
+                        {s.address && <span className="text-cafe-walnut/80 text-xs">{s.address}</span>}
+                        {s.distance && <span className="text-cafe-sage text-xs">{s.distance}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {recommended && (
+                <div className="flex items-start gap-3 p-4 rounded-2xl bg-cafe-sage/15 border border-cafe-sage/40">
+                  <Store className="text-cafe-sage shrink-0 mt-0.5" size={20} />
                   <div>
-                    <p className="font-medium text-amber-800 text-sm">Shop at these nearby stores</p>
-                    <p className="text-amber-700 text-sm mt-0.5">{result.nearbyStores.join(' · ')}</p>
+                    <p className="font-medium text-cafe-sage text-sm">Recommended store for this recipe</p>
+                    <p className="text-cafe-espresso font-medium mt-0.5">{recommended.name}</p>
+                    {recommended.address && <p className="text-cafe-walnut/90 text-sm mt-0.5">{recommended.address}</p>}
                   </div>
                 </div>
               )}
 
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-800">{result.meal.mealName}</h2>
-                  <p className="text-slate-600 mt-1">
-                    Feeds {result.people} · ${result.meal.totalCost?.toFixed(2) || '—'} total
-                    (under ${result.budget.toFixed(2)} budget)
+                  <h2 className="font-serif text-xl font-semibold text-cafe-espresso">Choose your meal</h2>
+                  <p className="text-cafe-walnut/90 text-sm mt-1">
+                    Select one of {result.meals?.length || 0} options below
                   </p>
                 </div>
                 <button
                   onClick={reset}
-                  className="text-sm font-medium text-amber-600 hover:text-amber-700"
+                  className="text-sm font-medium text-cafe-rose hover:text-cafe-espresso transition-colors"
                 >
                   Plan another
                 </button>
               </div>
 
-              {result.meal.nutritionNotes && (
-                <div className="flex items-start gap-3 p-4 rounded-xl bg-green-50 border border-green-200">
-                  <Leaf className="text-green-600 shrink-0 mt-0.5" size={20} />
-                  <p className="text-green-800 text-sm">{result.meal.nutritionNotes}</p>
-                </div>
+              <div className="grid gap-2">
+                {(result.meals || []).map((m) => (
+                  <button
+                    key={m.mealName}
+                    type="button"
+                    onClick={() => setSelectedMeal(m)}
+                    className={`text-left p-4 rounded-2xl border transition-all ${
+                      meal?.mealName === m.mealName
+                        ? 'bg-cafe-caramel/20 border-cafe-caramel shadow-cafe'
+                        : 'bg-white border-cafe-foam hover:border-cafe-caramel/50'
+                    }`}
+                  >
+                    <span className="font-medium text-cafe-espresso">{m.mealName}</span>
+                    <span className="block text-sm text-cafe-sage mt-0.5">
+                      Feeds {m.servings} · ${m.totalCost?.toFixed(2) || '—'} total
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              {meal && (
+                <>
+                  <div className="flex items-start justify-between gap-4 pt-4 border-t border-cafe-foam">
+                    <div>
+                      <h2 className="font-serif text-xl font-semibold text-cafe-espresso">{meal.mealName}</h2>
+                      <p className="text-cafe-walnut mt-1">
+                        Feeds {result.people} · ${meal.totalCost?.toFixed(2) || '—'} total
+                        (under ${result.budget?.toFixed(2)} budget)
+                      </p>
+                    </div>
+                  </div>
+
+                  {meal.nutritionNotes && (
+                    <div className="flex items-start gap-3 p-4 rounded-2xl bg-cafe-sage/15 border border-cafe-sage/40">
+                      <Leaf className="text-cafe-sage shrink-0 mt-0.5" size={20} />
+                      <p className="text-cafe-espresso/90 text-sm">{meal.nutritionNotes}</p>
+                    </div>
+                  )}
+
+                  <div className="rounded-2xl border border-cafe-foam bg-white overflow-hidden shadow-cafe">
+                    <div className="px-4 py-3 bg-cafe-latte border-b border-cafe-foam flex items-center gap-2">
+                      <ShoppingBag size={18} className="text-cafe-caramel" />
+                      <span className="font-semibold text-cafe-espresso">Ingredients to buy</span>
+                    </div>
+                    <ul className="divide-y divide-cafe-foam">
+                      {(meal.ingredients || []).map((ing, i) => (
+                        <li key={i} className="px-4 py-3 flex justify-between items-center">
+                          <span className="text-cafe-walnut">
+                            {ing.quantity ? `${ing.quantity} ` : ''}{ing.name}
+                          </span>
+                          <span className="font-medium text-cafe-espresso">
+                            ${typeof ing.price === 'number' ? ing.price.toFixed(2) : '—'}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="rounded-2xl border border-cafe-foam bg-white overflow-hidden shadow-cafe">
+                    <div className="px-4 py-3 bg-cafe-latte border-b border-cafe-foam flex items-center gap-2">
+                      <UtensilsCrossed size={18} className="text-cafe-caramel" />
+                      <span className="font-semibold text-cafe-espresso">How to make it</span>
+                    </div>
+                    {recommended && (
+                      <div className="px-4 py-2 bg-cafe-sage/10 border-b border-cafe-foam text-sm text-cafe-sage">
+                        Shop at: <strong>{recommended.name}</strong>
+                        {recommended.address && <> — {recommended.address}</>}
+                      </div>
+                    )}
+                    <ol className="divide-y divide-cafe-foam">
+                      {(meal.instructions || []).map((step, i) => (
+                        <li key={i} className="px-4 py-3 flex gap-3">
+                          <span className="shrink-0 w-6 h-6 rounded-full bg-cafe-caramel/30 text-cafe-espresso text-sm font-semibold flex items-center justify-center">
+                            {i + 1}
+                          </span>
+                          <span className="text-cafe-walnut">{step}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                </>
               )}
-
-              <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-                <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center gap-2">
-                  <ShoppingBag size={18} className="text-slate-600" />
-                  <span className="font-semibold text-slate-800">Ingredients to buy</span>
-                </div>
-                <ul className="divide-y divide-slate-100">
-                  {(result.meal.ingredients || []).map((ing, i) => (
-                    <li key={i} className="px-4 py-3 flex justify-between items-center">
-                      <span className="text-slate-700">
-                        {ing.quantity ? `${ing.quantity} ` : ''}{ing.name}
-                      </span>
-                      <span className="font-medium text-amber-700">
-                        ${typeof ing.price === 'number' ? ing.price.toFixed(2) : '—'}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-                <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center gap-2">
-                  <UtensilsCrossed size={18} className="text-slate-600" />
-                  <span className="font-semibold text-slate-800">How to make it</span>
-                </div>
-                <ol className="divide-y divide-slate-100">
-                  {(result.meal.instructions || []).map((step, i) => (
-                    <li key={i} className="px-4 py-3 flex gap-3">
-                      <span className="shrink-0 w-6 h-6 rounded-full bg-amber-100 text-amber-800 text-sm font-semibold flex items-center justify-center">
-                        {i + 1}
-                      </span>
-                      <span className="text-slate-700">{step}</span>
-                    </li>
-                  ))}
-                </ol>
-              </div>
             </motion.div>
           )}
         </AnimatePresence>
       </main>
 
-      <footer className="mt-16 py-8 text-center text-slate-500 text-sm">
+      <footer className="mt-16 py-8 text-center text-cafe-walnut/70 text-sm">
         <p>MealStretch helps families eat well on a budget.</p>
       </footer>
     </div>
