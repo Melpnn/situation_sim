@@ -48,11 +48,12 @@ const INV = {
   flour: { name: 'Flour (5 lb)', price: 2.99, needsStove: true },
 }
 
-// Curated meals: { mealName, servings, ingredients: [{ key, quantity }], instructions, nutritionNotes, allergens }
+// Curated meals: { mealName, servings, nutrition, ingredients, instructions, nutritionNotes, allergens }
 const MEAL_TEMPLATES = [
   {
     mealName: 'Rice & Black Beans',
     servings: 4,
+    nutrition: { calories: 350, protein: 12, fat: 8, carbs: 55 },
     ingredients: [
       { key: 'rice', quantity: '1 lb', price: 0.92 },
       { key: 'blackBeans', quantity: '2 cans', price: 2.38 },
@@ -74,6 +75,7 @@ const MEAL_TEMPLATES = [
   {
     mealName: 'Tuna Salad Sandwiches',
     servings: 4,
+    nutrition: { calories: 400, protein: 25, fat: 12, carbs: 45 },
     ingredients: [
       { key: 'tuna', quantity: '2 cans', price: 2.98 },
       { key: 'bread', quantity: '1 loaf', price: 2.49 },
@@ -89,17 +91,11 @@ const MEAL_TEMPLATES = [
     nutritionNotes: 'Good source of protein and omega-3. No cooking required.',
     allergens: ['Fish'],
     needsStove: false,
-    ingredients: [
-      { key: 'tuna', quantity: '2 cans', price: 2.98 },
-      { key: 'bread', quantity: '1 loaf', price: 2.49 },
-      { key: 'onions', quantity: '1/4 onion', price: 0.21 },
-      { key: 'yogurt', quantity: '1/4 cup', price: 0.82 },
-      { key: 'carrots', quantity: '2 carrots', price: 0.46 },
-    ],
   },
   {
     mealName: 'Cheese & Apple Snack Plate',
     servings: 4,
+    nutrition: { calories: 320, protein: 12, fat: 15, carbs: 35 },
     ingredients: [
       { key: 'cheese', quantity: '4 oz', price: 2.0 },
       { key: 'apples', quantity: '2 apples', price: 1.5 },
@@ -117,6 +113,7 @@ const MEAL_TEMPLATES = [
   {
     mealName: 'Lentil Soup',
     servings: 6,
+    nutrition: { calories: 220, protein: 12, fat: 2, carbs: 38 },
     ingredients: [
       { key: 'lentils', quantity: '1 lb', price: 1.79 },
       { key: 'broth', quantity: '1 container', price: 2.49 },
@@ -138,6 +135,7 @@ const MEAL_TEMPLATES = [
   {
     mealName: 'Chicken & Rice Bowl',
     servings: 4,
+    nutrition: { calories: 450, protein: 35, fat: 10, carbs: 45 },
     ingredients: [
       { key: 'chicken', quantity: '1 lb', price: 2.99 },
       { key: 'rice', quantity: '1 lb', price: 0.92 },
@@ -158,6 +156,7 @@ const MEAL_TEMPLATES = [
   {
     mealName: 'Peanut Butter & Banana Sandwiches',
     servings: 4,
+    nutrition: { calories: 400, protein: 14, fat: 18, carbs: 50 },
     ingredients: [
       { key: 'peanutButter', quantity: '1 jar', price: 3.99 },
       { key: 'bread', quantity: '1 loaf', price: 2.49 },
@@ -175,6 +174,7 @@ const MEAL_TEMPLATES = [
   {
     mealName: 'Pasta with Canned Tomatoes',
     servings: 4,
+    nutrition: { calories: 350, protein: 12, fat: 8, carbs: 55 },
     ingredients: [
       { key: 'pasta', quantity: '1 lb', price: 1.29 },
       { key: 'cannedTomatoes', quantity: '1 can', price: 1.39 },
@@ -195,6 +195,7 @@ const MEAL_TEMPLATES = [
   {
     mealName: 'Bean & Cheese Burrito Bowl',
     servings: 4,
+    nutrition: { calories: 400, protein: 18, fat: 12, carbs: 45 },
     ingredients: [
       { key: 'blackBeans', quantity: '2 cans', price: 2.38 },
       { key: 'rice', quantity: '1 lb', price: 0.92 },
@@ -214,6 +215,7 @@ const MEAL_TEMPLATES = [
   {
     mealName: 'Oatmeal with Bananas',
     servings: 4,
+    nutrition: { calories: 280, protein: 8, fat: 6, carbs: 50 },
     ingredients: [
       { key: 'oatmeal', quantity: '1 container', price: 3.49 },
       { key: 'bananas', quantity: '1 bunch', price: 1.29 },
@@ -230,6 +232,7 @@ const MEAL_TEMPLATES = [
   {
     mealName: 'Egg & Potato Scramble',
     servings: 4,
+    nutrition: { calories: 320, protein: 18, fat: 15, carbs: 25 },
     ingredients: [
       { key: 'eggs', quantity: '1 dozen', price: 3.19 },
       { key: 'potatoes', quantity: '2 lb', price: 1.6 },
@@ -249,6 +252,7 @@ const MEAL_TEMPLATES = [
   {
     mealName: 'Cabbage & Potato Soup',
     servings: 6,
+    nutrition: { calories: 180, protein: 6, fat: 2, carbs: 35 },
     ingredients: [
       { key: 'cabbage', quantity: '1 head', price: 1.49 },
       { key: 'potatoes', quantity: '2 lb', price: 1.6 },
@@ -269,6 +273,7 @@ const MEAL_TEMPLATES = [
   {
     mealName: 'Yogurt Parfait with Fruit',
     servings: 4,
+    nutrition: { calories: 250, protein: 10, fat: 6, carbs: 40 },
     ingredients: [
       { key: 'yogurt', quantity: '1 container', price: 3.29 },
       { key: 'bananas', quantity: '1 bunch', price: 1.29 },
@@ -369,10 +374,19 @@ app.post('/api/plan-meal', (req, res) => {
       m.ingredients.reduce((s, i) => s + (i.price || 0), 0) * scale * 100
     ) / 100
     if (totalCost > budgetNum) return null
+    const totalServings = m.servings * scale
+    const nut = m.nutrition || {}
+    const nutrition = {
+      calories: Math.round((nut.calories || 0) * totalServings),
+      protein: Math.round((nut.protein || 0) * totalServings),
+      fat: Math.round((nut.fat || 0) * totalServings),
+      carbs: Math.round((nut.carbs || 0) * totalServings),
+    }
     return {
       mealName: m.mealName,
-      servings: m.servings * scale,
+      servings: totalServings,
       totalCost,
+      nutrition,
       ingredients: m.ingredients.map((i) => ({
         name: INV[i.key]?.name || i.key,
         price: Math.round((i.price || 0) * scale * 100) / 100,
@@ -481,8 +495,11 @@ app.get('/api/nearby-stores', async (req, res) => {
 // Geocode address to lat/lng (for address search)
 app.get('/api/geocode', async (req, res) => {
   const { address } = req.query
-  if (!address || !GOOGLE_PLACES_API_KEY) {
+  if (!address) {
     return res.status(400).json({ error: 'Address required' })
+  }
+  if (!GOOGLE_PLACES_API_KEY) {
+    return res.status(503).json({ error: 'Geocoding not configured. Add GOOGLE_PLACES_API_KEY to backend/.env' })
   }
 
   try {

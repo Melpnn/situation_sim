@@ -8,15 +8,18 @@ html, body, #root {
 }
 
 body {
-  font-family: 'Quicksand', system-ui, sans-serif;
+  font-family: 'Inter', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Cozy cafe warm background */
+/* Colorful gradient background */
 .cafe-warm-bg {
-  background-color: #faf7f2;
-  background-image: 
-    radial-gradient(ellipse at 20% 20%, rgba(196, 167, 125, 0.08) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 80%, rgba(139, 115, 85, 0.06) 0%, transparent 50%);
+  background: linear-gradient(135deg, #fef3c7 0%, #f0fdfa 50%, #fce7f3 100%);
+  min-height: 100%;
+}
+
+/* Input focus glow */
+.input-focus:focus {
+  box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.25);
 }
